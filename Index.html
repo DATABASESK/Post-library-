@@ -1,0 +1,1429 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sulekha Image Library</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+:root{
+--bg:#f5f7fb;--surface:#fff;--line:#e5eaf1;
+--text:#172033;--muted:#697586;--brand:#635bff;
+--brand-soft:#efefff;--green:#12805c;--red:#c0392b;
+--shadow:0 8px 28px rgba(25,35,55,.06)
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed}
+.app{max-width:1600px;margin:auto;padding:24px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap}
+.brand h1{font-size:24px;margin:0;font-weight:750;letter-spacing:-.5px}
+.brand p{margin:5px 0 0;color:var(--muted)}
+.actions{display:flex;gap:9px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 14px;color:var(--text);font-weight:600;display:inline-flex;align-items:center;gap:7px}
+.btn:hover{background:#f8f9fc;border-color:#cbd3df}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:white}
+.btn.primary:hover{background:#5149e8}
+.btn.small{padding:7px 10px;font-size:12px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
+.stat .label{font-size:12px;color:var(--muted);font-weight:600}
+.stat .value{font-size:25px;font-weight:750;margin-top:4px}
+.stat .hint{font-size:11px;color:var(--muted);margin-top:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+.panel-head{padding:18px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.panel-head h2{font-size:16px;margin:0}
+.panel-head p{color:var(--muted);margin:3px 0 0;font-size:12px}
+.toolbar{padding:15px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.search{position:relative;flex:1;min-width:220px;max-width:460px}
+.search input{width:100%;padding:11px 13px 11px 36px;border:1px solid var(--line);border-radius:10px;outline:none}
+.search:before{content:"⌕";position:absolute;left:13px;top:6px;font-size:21px;color:var(--muted)}
+input:focus,select:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft);outline:none}
+select{padding:10px 32px 10px 11px;border:1px solid var(--line);border-radius:10px;background:white;color:var(--text)}
+.content{padding:20px}
+.folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(225px,1fr));gap:14px}
+.folder{border:1px solid var(--line);border-radius:13px;padding:17px;background:white;transition:.15s;cursor:pointer;min-width:0}
+.folder:hover{border-color:#b8b5ff;box-shadow:0 7px 20px rgba(60,55,150,.08);transform:translateY(-1px)}
+.folder-top{display:flex;justify-content:space-between;align-items:center}
+.folder-icon{font-size:28px}
+.folder-count{background:#f1f3f8;border-radius:20px;padding:4px 8px;color:var(--muted);font-size:11px;font-weight:700}
+.folder-done{color:#15803d;font-size:12px;font-weight:800}
+.folder-progress{color:var(--muted);font-size:12px;font-weight:700}
+.folder-completed{border-color:#86c99b;background:#f5fff7}
+.folder-name{font-size:16px;font-weight:700;margin:12px 0 3px;overflow-wrap:anywhere}
+.folder-sub{font-size:12px;color:var(--muted)}
+.folder-foot{display:flex;justify-content:space-between;align-items:center;margin-top:15px;gap:8px}
+.folder-date{font-size:11px;color:var(--muted)}
+.posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:16px}
+.post{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:white;display:flex;flex-direction:column;min-width:0;position:relative}
+.post.is-done{border-color:#9bd8bf}
+.thumb{aspect-ratio:1/1;background:#f0f2f6;position:relative;overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
+.thumb .broken{height:100%;display:grid;place-items:center;color:var(--muted);padding:20px;text-align:center}
+.done-toggle{position:absolute;z-index:2;top:10px;right:10px;background:#fff;border:1px solid #cbd5d1;border-radius:20px;padding:6px 10px;font-size:12px;font-weight:700;color:#53615c;box-shadow:0 2px 8px #0002}
+.done-toggle.done{background:#e6f7ef;border-color:#9bd8bf;color:#08764e}
+.bulkbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 20px;background:#fafaff;border-bottom:1px solid var(--line)}
+.bulkbar .note{font-size:12px;color:var(--muted);margin-right:auto}
+.post-body{padding:13px;display:flex;flex-direction:column;gap:9px;flex:1}
+.meta{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:11px}
+.post-title{font-size:14px;font-weight:700;line-height:1.35;overflow-wrap:anywhere}
+.post-title.missing{color:var(--muted);font-weight:400;font-style:italic}
+.prompt{font-size:12px;color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:48px}
+.post-actions{display:flex;gap:7px;margin-top:auto}
+.post-actions .btn{flex:1;justify-content:center;padding:8px 7px;font-size:12px}
+.empty{padding:55px 20px;text-align:center;color:var(--muted)}
+.empty .emoji{font-size:35px;margin-bottom:8px}
+.empty h3{color:var(--text);margin:4px 0}
+.empty p{margin:5px 0}
+.notice{padding:12px 15px;margin:15px 20px 0;border-radius:10px;font-size:13px}
+.notice.error{background:#fff1f0;color:#9f2d25;border:1px solid #ffd2ce}
+.notice.info{background:#f0f5ff;color:#31518c;border:1px solid #d7e4ff}
+.hidden{display:none!important}
+.crumb{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.crumb button{border:0;background:none;color:var(--brand);font-weight:700;padding:0}
+.result-line{font-size:12px;color:var(--muted);margin-left:auto}
+.pagination{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px;border-top:1px solid var(--line)}
+.overlay{position:fixed;inset:0;background:rgba(13,19,32,.78);z-index:20;display:none;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.lightbox-inner{max-width:94vw;max-height:94vh;position:relative}
+.lightbox-inner img{max-width:94vw;max-height:88vh;display:block;border-radius:10px}
+.close{position:absolute;right:0;top:-42px;background:white;border:0;border-radius:8px;padding:8px 12px;font-weight:700}
+.modal{background:white;border-radius:15px;width:min(650px,95vw);max-height:85vh;overflow:auto;padding:22px}
+.modal-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.modal h3{margin:0}
+.detail-label{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin:16px 0 5px}
+.detail-text{white-space:pre-wrap;overflow-wrap:anywhere;background:#f7f8fb;border:1px solid var(--line);border-radius:9px;padding:11px;font-size:13px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#172033;color:#fff;padding:11px 16px;border-radius:10px;z-index:40;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.loader{display:inline-block;width:15px;height:15px;border:2px solid #ddd;border-top-color:var(--brand);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:760px){
+.app{padding:14px}
+.stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+.panel-head,.toolbar{padding:14px}
+.content{padding:14px}
+.posts-grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
+.brand h1{font-size:21px}
+}
+@media(max-width:420px){
+.posts-grid{grid-template-columns:1fr 1fr;gap:9px}
+.post-body{padding:9px}
+.post-actions{flex-direction:column}
+.post-title{font-size:12px}
+.stats{gap:8px}
+.stat{padding:12px}
+.stat .value{font-size:21px}
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+
+<header class="top">
+  <div class="brand">
+    <h1>🗂️ Sulekha Image Library</h1>
+    <p>Find, preview and download your generated business posts.</p>
+  </div>
+  <div class="actions">
+    <button class="btn" id="refreshBtn">↻ Refresh data</button>
+    <button class="btn" id="exportBtn">⇩ Export CSV</button>
+  </div>
+</header>
+
+<section class="stats">
+  <div class="stat">
+    <div class="label">TOTAL IMAGES</div>
+    <div class="value" id="totalStat">—</div>
+    <div class="hint">Images available in library</div>
+  </div>
+  <div class="stat">
+    <div class="label">CUSTOMER FOLDERS</div>
+    <div class="value" id="folderStat">—</div>
+    <div class="hint">Unique customer IDs</div>
+  </div>
+  <div class="stat">
+    <div class="label">TODAY'S IMAGES</div>
+    <div class="value" id="todayStat">—</div>
+    <div class="hint">Created today</div>
+  </div>
+  <div class="stat">
+    <div class="label">MISSING TITLES</div>
+    <div class="value" id="missingStat">—</div>
+    <div class="hint">Images needing title review</div>
+  </div>
+</section>
+
+<main class="panel">
+  <div class="panel-head">
+    <div class="crumb">
+      <button id="homeBtn" class="hidden">← All customers</button>
+      <div>
+        <h2 id="viewTitle">Customer folders</h2>
+        <p id="viewSub">Browse generated images grouped by customer ID.</p>
+      </div>
+    </div>
+    <div class="result-line" id="resultLine"></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search">
+      <input id="searchInput" type="search"
+        placeholder="Search customer ID, business, title or prompt..."
+        autocomplete="off">
+    </div>
+
+    <select id="sortSelect" aria-label="Sort order">
+      <option value="newest">Latest Date & Time</option>
+      <option value="oldest">Oldest Date & Time</option>
+      <option value="title">Title A–Z</option>
+    </select>
+
+    <select id="dateSelect" aria-label="Date filter">
+      <option value="all">All dates</option>
+      <option value="today">Today</option>
+      <option value="7">Last 7 days</option>
+      <option value="30">Last 30 days</option>
+    </select>
+
+    <button class="btn hidden" id="downloadFolderBtn">
+      ⇩ Download folder ZIP
+    </button>
+  </div>
+
+  <div id="notice" class="notice hidden"></div>
+
+  <div id="bulkBar" class="bulkbar hidden">
+    <strong id="selectedCount">First 2 images</strong>
+    <span class="note">Actions apply to the first two images shown in this folder.</span>
+    <button class="btn small" id="copyTwoBtn" disabled>Copy 2 titles</button>
+    <button class="btn small primary" id="swapTitlesBtn" disabled>⇄ Swap titles</button>
+  </div>
+
+  <div class="content">
+    <div id="folderGrid" class="folder-grid"></div>
+    <div id="postsGrid" class="posts-grid hidden"></div>
+
+    <div id="emptyState" class="empty hidden">
+      <div class="emoji">🔎</div>
+      <h3 id="emptyTitle">No images found</h3>
+      <p id="emptyText">Try changing your search or filters.</p>
+    </div>
+  </div>
+
+  <div class="pagination hidden" id="pagination">
+    <button class="btn small" id="prevPage">← Previous</button>
+    <span id="pageInfo"></span>
+    <button class="btn small" id="nextPage">Next →</button>
+  </div>
+</main>
+
+<p style="color:#8993a3;font-size:11px;text-align:center;margin:15px 0">
+Image Library · Data is read directly from your configured Supabase project.
+</p>
+</div>
+
+<div class="overlay" id="lightbox">
+  <div class="lightbox-inner">
+    <button class="close" id="closeLightbox">✕ Close</button>
+    <img id="lightboxImg" alt="Image preview">
+  </div>
+</div>
+
+<div class="overlay" id="detailsOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Post details</h3>
+      <button class="btn small" id="closeDetails">✕ Close</button>
+    </div>
+    <div id="detailsContent"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// SUPABASE SETTINGS
+const SUPABASE_URL = "https://tsjkkicdaflxzdncupno.supabase.co";
+const SUPABASE_KEY = "sb_publishable_R-wQAOCiOYaHt6syxcvTLg_keHCBYcz";
+
+const TABLE = "generated_posts";
+const PAGE_SIZE = 1000;
+const CARDS_PER_PAGE = 24;
+
+const $ = id => document.getElementById(id);
+
+let allRows = [];
+let currentCustomer = null;
+let page = 1;
+let loading = false;
+
+const DONE_KEY = "sulekha_image_library_done_v1";
+
+let doneIds = loadDoneIds();
+
+function loadDoneIds(){
+  try {
+    return new Set(
+      JSON.parse(localStorage.getItem(DONE_KEY) || "[]").map(String)
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDoneIds(){
+  try {
+    localStorage.setItem(DONE_KEY, JSON.stringify([...doneIds]));
+  } catch {
+    toast("Could not save completion state in this browser");
+  }
+}
+
+const escapeHTML = value =>
+  String(value ?? "").replace(/[&<>"']/g, c => ({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  }[c]));
+
+const safeFile = value =>
+  String(value || "image")
+    .replace(/[^\w-]+/g,"_")
+    .replace(/^_+|_+$/g,"")
+    .slice(0,70) || "image";
+
+const getCustomer = r =>
+  String(r.cust_id ?? r.business_id ?? r.customer_id ?? "unassigned");
+
+const getImage = r =>
+  r.public_url || r.image_url || r.file_url || r.image || "";
+
+const getTitle = r => r.title || "";
+
+const getBusiness = r =>
+  r.business_label || r.label || r.business_name || "";
+
+const getDate = r =>
+  r.created_at ? new Date(r.created_at) : null;
+
+const validDate = d =>
+  d instanceof Date && !Number.isNaN(d.getTime());
+
+// DATE/TIME SORT HELPER
+function timestamp(r){
+  const d = getDate(r);
+  return validDate(d) ? d.getTime() : 0;
+}
+
+// GET LATEST TIMESTAMP IN A CUSTOMER FOLDER
+function latestFolderTimestamp(items){
+  return Math.max(0, ...items.map(timestamp));
+}
+
+function toast(message){
+  const el = $("toast");
+  el.textContent = message;
+  el.classList.add("show");
+
+  clearTimeout(toast.timer);
+
+  toast.timer = setTimeout(() => {
+    el.classList.remove("show");
+  },2600);
+}
+
+function setNotice(message,type="info"){
+  const el = $("notice");
+  el.textContent = message;
+  el.className = "notice " + type;
+}
+
+function clearNotice(){
+  $("notice").classList.add("hidden");
+}
+
+function headers(){
+  return {
+    apikey:SUPABASE_KEY,
+    Authorization:"Bearer "+SUPABASE_KEY,
+    Accept:"application/json"
+  };
+}
+
+// FETCH ALL SUPABASE RECORDS
+async function fetchAllRows(){
+  const collected = [];
+
+  for(let offset=0;;offset+=PAGE_SIZE){
+
+    const params = new URLSearchParams({
+      select:"*",
+      order:"created_at.desc"
+    });
+
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/${TABLE}?${params}`,
+      {
+        headers:{
+          ...headers(),
+          Range:`${offset}-${offset+PAGE_SIZE-1}`
+        }
+      }
+    );
+
+    if(!response.ok){
+      const body = await response.text();
+      throw new Error(
+        `Supabase returned ${response.status}: ${body.slice(0,500)}`
+      );
+    }
+
+    const batch = await response.json();
+
+    if(!Array.isArray(batch)){
+      throw new Error("Supabase response was not a list.");
+    }
+
+    collected.push(...batch);
+
+    if(batch.length<PAGE_SIZE) break;
+  }
+
+  return collected.filter(r=>getImage(r));
+}
+
+// DASHBOARD STATISTICS
+function updateStats(){
+
+  const today = new Date();
+  today.setHours(0,0,0,0);
+
+  $("totalStat").textContent = allRows.length.toLocaleString();
+
+  $("folderStat").textContent =
+    new Set(allRows.map(getCustomer)).size.toLocaleString();
+
+  $("todayStat").textContent =
+    allRows.filter(r=>{
+      const d = getDate(r);
+      return validDate(d) && d>=today;
+    }).length.toLocaleString();
+
+  $("missingStat").textContent =
+    allRows.filter(r=>!getTitle(r)).length.toLocaleString();
+}
+
+// DATE FILTER
+function dateMatches(r){
+
+  const mode = $("dateSelect").value;
+
+  if(mode==="all") return true;
+
+  const d = getDate(r);
+
+  if(!validDate(d)) return false;
+
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(0,0,0,0);
+
+  if(mode==="today"){
+    return d>=start;
+  }
+
+  start.setDate(start.getDate()-Number(mode)+1);
+
+  return d>=start;
+}
+
+// SEARCH
+function matches(r,q){
+
+  if(!q) return true;
+
+  return [
+    getCustomer(r),
+    getBusiness(r),
+    getTitle(r),
+    r.prompt,
+    r.id
+  ].some(v=>String(v??"").toLowerCase().includes(q));
+}
+
+// FILTER AND SORT RECORDS
+function filteredRows(){
+
+  const q = $("searchInput").value.trim().toLowerCase();
+
+  let list = allRows.filter(r=>
+    matches(r,q) && dateMatches(r)
+  );
+
+  const sort = $("sortSelect").value;
+
+  if(sort==="oldest"){
+
+    list.sort((a,b)=>timestamp(a)-timestamp(b));
+
+  }else if(sort==="title"){
+
+    list.sort((a,b)=>
+      getTitle(a).localeCompare(getTitle(b))
+    );
+
+  }else{
+
+    // LATEST DATE AND TIME FIRST
+    list.sort((a,b)=>timestamp(b)-timestamp(a));
+
+  }
+
+  return list;
+}
+
+function showEmpty(title,text){
+  $("emptyTitle").textContent = title;
+  $("emptyText").textContent = text;
+  $("emptyState").classList.remove("hidden");
+}
+
+function hideEmpty(){
+  $("emptyState").classList.add("hidden");
+}
+
+// MAIN RENDER FUNCTION
+function render(){
+
+  hideEmpty();
+
+  const list = filteredRows();
+  const inFolder = currentCustomer!==null;
+
+  updateBulkBar();
+
+  $("homeBtn").classList.toggle("hidden",!inFolder);
+  $("downloadFolderBtn").classList.toggle("hidden",!inFolder);
+  $("folderGrid").classList.toggle("hidden",inFolder);
+  $("postsGrid").classList.toggle("hidden",!inFolder);
+  $("pagination").classList.add("hidden");
+
+  // CUSTOMER FOLDER VIEW
+  if(!inFolder){
+
+    $("viewTitle").textContent = "Customer folders";
+
+    $("viewSub").textContent =
+      "Folders sorted by latest generated date and time.";
+
+    const groups = new Map();
+
+    for(const r of list){
+
+      const key = getCustomer(r);
+
+      if(!groups.has(key)){
+        groups.set(key,[]);
+      }
+
+      groups.get(key).push(r);
+    }
+
+    // SORT CUSTOMER FOLDERS BY LATEST CREATED_AT
+    const sorted = [...groups.entries()].sort((a,b)=>{
+
+      const latestA = latestFolderTimestamp(a[1]);
+      const latestB = latestFolderTimestamp(b[1]);
+
+      return latestB-latestA;
+
+    });
+
+    $("resultLine").textContent =
+      `${sorted.length} folders · ${list.length} images`;
+
+    $("folderGrid").innerHTML = sorted.map(([key,items])=>{
+
+      const business = items.find(r=>getBusiness(r));
+
+      const latestTime = latestFolderTimestamp(items);
+
+      const newest = latestTime
+        ? new Date(latestTime)
+        : null;
+
+      const doneCount = items.filter(r=>
+        doneIds.has(String(r.id))
+      ).length;
+
+      const isFolderDone =
+        items.length>0 && doneCount===items.length;
+
+      const progress = isFolderDone
+        ? '<span class="folder-done">✓ Completed</span>'
+        : `<span class="folder-progress">${doneCount}/${items.length} done</span>`;
+
+      return `
+        <article class="folder ${isFolderDone?"folder-completed":""}"
+          data-customer="${escapeHTML(key)}">
+
+          <div class="folder-top">
+            <span class="folder-icon">${isFolderDone?"✅":"📁"}</span>
+            <span class="folder-count">${items.length} images</span>
+          </div>
+
+          <div class="folder-name">${escapeHTML(key)}</div>
+
+          <div class="folder-sub">
+            ${escapeHTML(getBusiness(business||{})||"Customer folder")}
+          </div>
+
+          <div class="folder-foot">
+            <span class="folder-date">
+              ${newest ? "Updated "+newest.toLocaleString() : "Date unavailable"}
+            </span>
+            ${progress}
+          </div>
+
+        </article>
+      `;
+
+    }).join("");
+
+    if(!sorted.length){
+
+      showEmpty(
+        "No customer folders found",
+        allRows.length
+          ? "No records match your search or date filter."
+          : "No image records were returned. Check your Supabase connection."
+      );
+
+    }
+
+    return;
+  }
+
+  // INDIVIDUAL CUSTOMER VIEW
+  const customerRows = list.filter(r=>
+    getCustomer(r)===currentCustomer
+  );
+
+  $("viewTitle").textContent =
+    `Customer ${currentCustomer}`;
+
+  $("viewSub").textContent =
+    `${customerRows.length} matching images`+
+    (customerRows[0] && getBusiness(customerRows[0])
+      ? " · "+getBusiness(customerRows[0])
+      : "");
+
+  $("resultLine").textContent =
+    `${customerRows.length} images`;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(customerRows.length/CARDS_PER_PAGE)
+  );
+
+  page = Math.min(page,totalPages);
+
+  const start = (page-1)*CARDS_PER_PAGE;
+
+  const visible = customerRows.slice(
+    start,
+    start+CARDS_PER_PAGE
+  );
+
+  $("postsGrid").innerHTML = visible.map(r=>{
+
+    const id = escapeHTML(r.id);
+    const url = escapeHTML(getImage(r));
+    const title = getTitle(r);
+
+    const d = getDate(r);
+
+    const date = validDate(d)
+      ? d.toLocaleString()
+      : "Date unavailable";
+
+    const index = r.image_index
+      ? `Image ${escapeHTML(r.image_index)}`
+      : "Generated post";
+
+    const isDone = doneIds.has(String(r.id));
+
+    return `
+      <article class="post ${isDone?"is-done":""}">
+
+        <button class="done-toggle ${isDone?"done":""}"
+          data-done="${id}"
+          title="Mark ${isDone?"not done":"as done"}">
+
+          ${isDone?"✓ Done":"○ Mark done"}
+
+        </button>
+
+        <div class="thumb">
+
+          <img loading="lazy"
+            src="${url}"
+            alt="${escapeHTML(title||"Generated image")}"
+            data-preview="${url}"
+            onerror="this.parentElement.innerHTML='<div class=&quot;broken&quot;>Image could not be loaded<br>Check the storage URL or permissions.</div>'">
+
+        </div>
+
+        <div class="post-body">
+
+          <div class="meta">
+            <span>${index}</span>
+            <span>${escapeHTML(date)}</span>
+          </div>
+
+          <div class="post-title ${title?"":"missing"}">
+            ${escapeHTML(title||"No title captured")}
+          </div>
+
+          <div class="prompt">
+            ${escapeHTML(r.prompt||"No prompt available")}
+          </div>
+
+          <div class="post-actions">
+
+            <button class="btn" data-details="${id}">
+              Details
+            </button>
+
+            <button class="btn" data-copy-title="${id}">
+              Copy title
+            </button>
+
+            <button class="btn primary" data-download="${id}">
+              ↓ Image
+            </button>
+
+          </div>
+
+        </div>
+
+      </article>
+    `;
+
+  }).join("");
+
+  if(!customerRows.length){
+
+    showEmpty(
+      "No images in this folder",
+      "Try another search or date filter."
+    );
+
+  }
+
+  if(customerRows.length>CARDS_PER_PAGE){
+
+    $("pagination").classList.remove("hidden");
+
+    $("pageInfo").textContent =
+      `Page ${page} of ${totalPages}`;
+
+    $("prevPage").disabled = page===1;
+    $("nextPage").disabled = page===totalPages;
+
+  }
+
+}
+
+// REFRESH DATA
+async function refresh(){
+
+  if(loading) return;
+
+  loading = true;
+
+  $("refreshBtn").disabled = true;
+
+  $("refreshBtn").innerHTML =
+    '<span class="loader"></span> Loading...';
+
+  clearNotice();
+
+  $("resultLine").textContent = "Loading records...";
+
+  try{
+
+    allRows = await fetchAllRows();
+
+    currentCustomer = null;
+    page = 1;
+
+    updateStats();
+    render();
+
+    if(!allRows.length){
+
+      setNotice(
+        "Connected to Supabase, but no rows with an image URL were found. Check the image URL fields and SELECT permissions.",
+        "info"
+      );
+
+    }else{
+
+      toast(`Loaded ${allRows.length} images`);
+
+    }
+
+  }catch(error){
+
+    allRows = [];
+
+    updateStats();
+    render();
+
+    setNotice(
+      "Could not load dashboard data. "+
+      error.message+
+      " Check project URL, API key, table name and Supabase RLS SELECT policy.",
+      "error"
+    );
+
+    $("resultLine").textContent = "Connection error";
+
+  }finally{
+
+    loading = false;
+
+    $("refreshBtn").disabled = false;
+    $("refreshBtn").textContent = "↻ Refresh data";
+
+  }
+
+}
+
+function findRow(id){
+
+  return allRows.find(r=>
+    String(r.id)===String(id)
+  );
+
+}
+
+// FIRST TWO IMAGES IN CURRENT SORT ORDER
+function getActionPair(){
+
+  if(currentCustomer===null) return [];
+
+  return filteredRows()
+    .filter(r=>getCustomer(r)===currentCustomer)
+    .slice(0,2);
+
+}
+
+// BULK ACTIONS
+function updateBulkBar(){
+
+  const pair = getActionPair();
+
+  $("bulkBar").classList.toggle(
+    "hidden",
+    !currentCustomer
+  );
+
+  $("selectedCount").textContent =
+    pair.length===2
+      ? "First 2 images"
+      : "Need 2 images";
+
+  $("copyTwoBtn").disabled = pair.length!==2;
+  $("swapTitlesBtn").disabled = pair.length!==2;
+
+}
+
+// COMPLETION STATUS
+function toggleDone(id){
+
+  id = String(id);
+
+  if(doneIds.has(id)){
+    doneIds.delete(id);
+  }else{
+    doneIds.add(id);
+  }
+
+  saveDoneIds();
+
+  render();
+
+  toast(
+    doneIds.has(id)
+      ? "Marked as done"
+      : "Marked as not done"
+  );
+
+}
+
+// UPDATE SAVED TITLE IN SUPABASE
+async function updateSavedTitle(row,newTitle){
+
+  const url =
+    `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(row.id)}`;
+
+  const response = await fetch(url,{
+
+    method:"PATCH",
+
+    headers:{
+      ...headers(),
+      "Content-Type":"application/json",
+      Prefer:"return=minimal"
+    },
+
+    body:JSON.stringify({
+      title:newTitle
+    })
+
+  });
+
+  if(!response.ok){
+
+    throw new Error(
+      `Could not update record ${row.id}: `+
+      (await response.text()).slice(0,300)
+    );
+
+  }
+
+}
+
+// SWAP FIRST TWO TITLES
+async function swapSelectedTitles(){
+
+  const pair = getActionPair();
+
+  if(pair.length!==2){
+    toast("This folder needs at least 2 images");
+    return;
+  }
+
+  const [a,b] = pair;
+
+  const titleA = getTitle(a);
+  const titleB = getTitle(b);
+
+  if(!confirm(
+    `Swap the titles of the first two images shown in this folder?\n\n`+
+    `1. ${titleA||"(empty title)"}\n`+
+    `2. ${titleB||"(empty title)"}\n\n`+
+    `This updates the titles in Supabase.`
+  )) return;
+
+  $("swapTitlesBtn").disabled = true;
+  $("swapTitlesBtn").textContent = "Swapping...";
+
+  try{
+
+    await updateSavedTitle(a,titleB);
+
+    try{
+
+      await updateSavedTitle(b,titleA);
+
+    }catch(error){
+
+      try{
+        await updateSavedTitle(a,titleA);
+      }catch{}
+
+      throw error;
+
+    }
+
+    a.title = titleB;
+    b.title = titleA;
+
+    render();
+
+    toast("First two titles swapped and saved");
+
+  }catch(error){
+
+    toast(error.message+" Check Supabase UPDATE permissions.");
+
+  }finally{
+
+    $("swapTitlesBtn").textContent = "⇄ Swap titles";
+    updateBulkBar();
+
+  }
+
+}
+
+// COPY TWO TITLES
+async function copyTwoTitles(){
+
+  const pair = getActionPair();
+
+  if(pair.length!==2){
+    toast("This folder needs at least 2 images");
+    return;
+  }
+
+  const text = pair.map((r,i)=>
+    `${i+1}. ${getTitle(r)||"(No title)"}`
+  ).join("\n");
+
+  try{
+
+    await navigator.clipboard.writeText(text);
+
+    toast("First two titles copied");
+
+  }catch{
+
+    copyTextFallback(text);
+
+  }
+
+}
+
+function copyTextFallback(value){
+
+  const area = document.createElement("textarea");
+
+  area.value = value;
+  area.style.position = "fixed";
+  area.style.opacity = "0";
+
+  document.body.appendChild(area);
+
+  area.select();
+
+  try{
+
+    document.execCommand("copy");
+    toast("First two titles copied");
+
+  }catch{
+
+    toast("Clipboard permission unavailable");
+
+  }
+
+  area.remove();
+
+}
+
+async function copyText(value,label){
+
+  try{
+
+    await navigator.clipboard.writeText(value||"");
+
+    toast(label+" copied");
+
+  }catch{
+
+    toast("Clipboard permission unavailable. Select and copy from Details.");
+
+  }
+
+}
+
+// DOWNLOAD SINGLE IMAGE
+async function downloadImage(r){
+
+  const url = getImage(r);
+
+  if(!url) return;
+
+  try{
+
+    const response = await fetch(url);
+
+    if(!response.ok){
+      throw new Error("Download request failed");
+    }
+
+    const blob = await response.blob();
+
+    const a = document.createElement("a");
+
+    const objectURL = URL.createObjectURL(blob);
+
+    a.href = objectURL;
+
+    a.download =
+      safeFile(getTitle(r)||`image-${r.id}`)+".png";
+
+    document.body.appendChild(a);
+
+    a.click();
+    a.remove();
+
+    setTimeout(()=>{
+      URL.revokeObjectURL(objectURL);
+    },5000);
+
+  }catch{
+
+    window.open(url,"_blank","noopener");
+
+    toast("Opened image in a new tab; use Save image as to download.");
+
+  }
+
+}
+
+// DOWNLOAD CUSTOMER ZIP
+async function downloadZip(customer){
+
+  const items = allRows.filter(r=>
+    getCustomer(r)===customer && getImage(r)
+  );
+
+  if(!items.length){
+    return toast("No images to download");
+  }
+
+  if(typeof JSZip==="undefined"){
+    return toast("ZIP library did not load. Check your internet connection.");
+  }
+
+  const btn = $("downloadFolderBtn");
+
+  btn.disabled = true;
+
+  try{
+
+    const zip = new JSZip();
+
+    let titles = "File\tTitle\tCreated at\n";
+
+    let done = 0;
+
+    for(const r of items){
+
+      done++;
+
+      btn.textContent =
+        `Preparing ${done}/${items.length}...`;
+
+      const response = await fetch(getImage(r));
+
+      if(!response.ok){
+        throw new Error(`Could not download image ${done}`);
+      }
+
+      const blob = await response.blob();
+
+      const filename =
+        `${String(done).padStart(3,"0")}-${safeFile(getTitle(r)||"image")}.png`;
+
+      zip.file(filename,blob);
+
+      titles +=
+        `${filename}\t${String(getTitle(r)).replace(/\t/g," ")}\t${r.created_at||""}\n`;
+
+    }
+
+    zip.file("titles-and-dates.tsv",titles);
+
+    const blob = await zip.generateAsync({
+      type:"blob"
+    });
+
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+      `customer-${safeFile(customer)}-images.zip`;
+
+    a.click();
+
+    setTimeout(()=>{
+      URL.revokeObjectURL(url);
+    },5000);
+
+    toast(`Downloaded ${items.length} images`);
+
+  }catch(e){
+
+    toast("ZIP download failed: "+e.message);
+
+  }finally{
+
+    btn.disabled = false;
+    btn.textContent = "⇩ Download folder ZIP";
+
+  }
+
+}
+
+// POST DETAILS
+function showDetails(r){
+
+  const fields = [
+    ["Title",getTitle(r)],
+    ["Business",getBusiness(r)],
+    ["Customer ID",getCustomer(r)],
+    ["Prompt",r.prompt],
+    ["Image URL",getImage(r)],
+    ["Created at",r.created_at],
+    ["Record ID",r.id],
+    ["Status",r.status]
+  ];
+
+  $("detailsContent").innerHTML = fields
+    .filter(([,v])=>v!==undefined && v!==null && v!=="")
+    .map(([label,value])=>`
+      <div class="detail-label">${escapeHTML(label)}</div>
+      <div class="detail-text">${escapeHTML(value)}</div>
+    `).join("");
+
+  $("detailsOverlay").classList.add("open");
+
+}
+
+// EXPORT CSV
+function exportCSV(){
+
+  const rows = filteredRows();
+
+  if(!rows.length){
+    return toast("No records to export");
+  }
+
+  const cols = [
+    "id",
+    "cust_id",
+    "business_id",
+    "business_label",
+    "title",
+    "prompt",
+    "image_index",
+    "public_url",
+    "image_url",
+    "status",
+    "created_at"
+  ];
+
+  const csv = [
+    cols.join(","),
+    ...rows.map(r=>
+      cols.map(k=>
+        `"${String(r[k]??"").replace(/"/g,'""')}"`
+      ).join(",")
+    )
+  ].join("\r\n");
+
+  const blob = new Blob(
+    ["\ufeff"+csv],
+    {type:"text/csv;charset=utf-8"}
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+
+  a.href = url;
+  a.download = "sulekha-image-library.csv";
+
+  a.click();
+
+  setTimeout(()=>{
+    URL.revokeObjectURL(url);
+  },5000);
+
+  toast("CSV exported");
+
+}
+
+// EVENT LISTENERS
+
+$("refreshBtn").addEventListener("click",refresh);
+
+$("exportBtn").addEventListener("click",exportCSV);
+
+$("searchInput").addEventListener("input",()=>{
+  page=1;
+  render();
+});
+
+$("sortSelect").addEventListener("change",()=>{
+  page=1;
+  render();
+});
+
+$("dateSelect").addEventListener("change",()=>{
+  page=1;
+  render();
+});
+
+$("homeBtn").addEventListener("click",()=>{
+
+  currentCustomer=null;
+  page=1;
+
+  $("searchInput").value="";
+
+  render();
+
+});
+
+$("downloadFolderBtn").addEventListener("click",()=>{
+  downloadZip(currentCustomer);
+});
+
+$("copyTwoBtn").addEventListener("click",copyTwoTitles);
+
+$("swapTitlesBtn").addEventListener("click",swapSelectedTitles);
+
+$("prevPage").addEventListener("click",()=>{
+  page=Math.max(1,page-1);
+  render();
+});
+
+$("nextPage").addEventListener("click",()=>{
+  page++;
+  render();
+});
+
+// OPEN CUSTOMER FOLDER
+$("folderGrid").addEventListener("click",e=>{
+
+  const card = e.target.closest("[data-customer]");
+
+  if(card){
+
+    currentCustomer = card.dataset.customer;
+
+    page=1;
+
+    $("searchInput").value="";
+    $("dateSelect").value="all";
+
+    render();
+
+    window.scrollTo({
+      top:0,
+      behavior:"smooth"
+    });
+
+  }
+
+});
+
+// IMAGE ACTIONS
+$("postsGrid").addEventListener("click",e=>{
+
+  const done = e.target.closest("[data-done]");
+
+  if(done){
+    toggleDone(done.dataset.done);
+    return;
+  }
+
+  const detail = e.target.closest("[data-details]");
+
+  if(detail){
+
+    const r = findRow(detail.dataset.details);
+
+    if(r) showDetails(r);
+
+    return;
+
+  }
+
+  const copy = e.target.closest("[data-copy-title]");
+
+  if(copy){
+
+    const r = findRow(copy.dataset.copyTitle);
+
+    if(r) copyText(getTitle(r),"Title");
+
+    return;
+
+  }
+
+  const download = e.target.closest("[data-download]");
+
+  if(download){
+
+    const r = findRow(download.dataset.download);
+
+    if(r) downloadImage(r);
+
+    return;
+
+  }
+
+  const image = e.target.closest("[data-preview]");
+
+  if(image){
+
+    $("lightboxImg").src = image.dataset.preview;
+
+    $("lightbox").classList.add("open");
+
+  }
+
+});
+
+// CLOSE IMAGE PREVIEW
+$("closeLightbox").addEventListener("click",()=>{
+  $("lightbox").classList.remove("open");
+});
+
+$("lightbox").addEventListener("click",e=>{
+
+  if(e.target===$("lightbox")){
+    $("lightbox").classList.remove("open");
+  }
+
+});
+
+// CLOSE DETAILS
+$("closeDetails").addEventListener("click",()=>{
+  $("detailsOverlay").classList.remove("open");
+});
+
+$("detailsOverlay").addEventListener("click",e=>{
+
+  if(e.target===$("detailsOverlay")){
+    $("detailsOverlay").classList.remove("open");
+  }
+
+});
+
+// ESCAPE KEY
+document.addEventListener("keydown",e=>{
+
+  if(e.key==="Escape"){
+
+    $("lightbox").classList.remove("open");
+
+    $("detailsOverlay").classList.remove("open");
+
+  }
+
+});
+
+// INITIAL LOAD
+refresh();
+
+</script>
+</body>
+</html>
