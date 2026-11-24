@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SKYT Library</title>
+<title>Sulekha Image Library</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <style>
@@ -29,6 +29,8 @@ button:disabled{opacity:.55;cursor:not-allowed}
 .btn.primary{background:var(--brand);border-color:var(--brand);color:white}
 .btn.primary:hover{background:#5149e8}
 .btn.small{padding:7px 10px;font-size:12px}
+.btn.complete{background:#e6f7ef;border-color:#9bd8bf;color:#08764e}
+.btn.undo{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow)}
 .stat .label{font-size:12px;color:var(--muted);font-weight:600}
@@ -56,16 +58,14 @@ select{padding:10px 32px 10px 11px;border:1px solid var(--line);border-radius:10
 .folder-completed{border-color:#86c99b;background:#f5fff7}
 .folder-name{font-size:16px;font-weight:700;margin:12px 0 3px;overflow-wrap:anywhere}
 .folder-sub{font-size:12px;color:var(--muted)}
-.folder-foot{display:flex;justify-content:space-between;align-items:center;margin-top:15px;gap:8px}
+.folder-foot{display:flex;justify-content:space-between;align-items:center;margin-top:15px;gap:8px;flex-wrap:wrap}
 .folder-date{font-size:11px;color:var(--muted)}
+.folder-action{margin-top:13px;width:100%;justify-content:center}
 .posts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(245px,1fr));gap:16px}
 .post{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:white;display:flex;flex-direction:column;min-width:0;position:relative}
-.post.is-done{border-color:#9bd8bf}
 .thumb{aspect-ratio:1/1;background:#f0f2f6;position:relative;overflow:hidden}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block;cursor:zoom-in}
 .thumb .broken{height:100%;display:grid;place-items:center;color:var(--muted);padding:20px;text-align:center}
-.done-toggle{position:absolute;z-index:2;top:10px;right:10px;background:#fff;border:1px solid #cbd5d1;border-radius:20px;padding:6px 10px;font-size:12px;font-weight:700;color:#53615c;box-shadow:0 2px 8px #0002}
-.done-toggle.done{background:#e6f7ef;border-color:#9bd8bf;color:#08764e}
 .bulkbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:11px 20px;background:#fafaff;border-bottom:1px solid var(--line)}
 .bulkbar .note{font-size:12px;color:var(--muted);margin-right:auto}
 .post-body{padding:13px;display:flex;flex-direction:column;gap:9px;flex:1}
@@ -82,6 +82,7 @@ select{padding:10px 32px 10px 11px;border:1px solid var(--line);border-radius:10
 .notice{padding:12px 15px;margin:15px 20px 0;border-radius:10px;font-size:13px}
 .notice.error{background:#fff1f0;color:#9f2d25;border:1px solid #ffd2ce}
 .notice.info{background:#f0f5ff;color:#31518c;border:1px solid #d7e4ff}
+.notice.success{background:#effcf5;color:#08764e;border:1px solid #b7ebcd}
 .hidden{display:none!important}
 .crumb{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .crumb button{border:0;background:none;color:var(--brand);font-weight:700;padding:0}
@@ -144,7 +145,7 @@ select{padding:10px 32px 10px 11px;border:1px solid var(--line);border-radius:10
   <div class="stat">
     <div class="label">CUSTOMER FOLDERS</div>
     <div class="value" id="folderStat">—</div>
-    <div class="hint">Unique customer IDs</div>
+    <div class="hint">Unique business IDs</div>
   </div>
   <div class="stat">
     <div class="label">TODAY'S IMAGES</div>
@@ -164,7 +165,7 @@ select{padding:10px 32px 10px 11px;border:1px solid var(--line);border-radius:10
       <button id="homeBtn" class="hidden">← All customers</button>
       <div>
         <h2 id="viewTitle">Customer folders</h2>
-        <p id="viewSub">Browse generated images grouped by customer ID.</p>
+        <p id="viewSub">Browse generated images grouped by business ID.</p>
       </div>
     </div>
     <div class="result-line" id="resultLine"></div>
@@ -223,7 +224,7 @@ select{padding:10px 32px 10px 11px;border:1px solid var(--line);border-radius:10
 </main>
 
 <p style="color:#8993a3;font-size:11px;text-align:center;margin:15px 0">
-Image Library · Data is read directly from your configured Supabase project.
+Image Library · Images and completion status are stored in Supabase.
 </p>
 </div>
 
@@ -252,6 +253,7 @@ const SUPABASE_URL = "https://tsjkkicdaflxzdncupno.supabase.co";
 const SUPABASE_KEY = "sb_publishable_R-wQAOCiOYaHt6syxcvTLg_keHCBYcz";
 
 const TABLE = "generated_posts";
+const COMPLETION_TABLE = "library_completed";
 const PAGE_SIZE = 1000;
 const CARDS_PER_PAGE = 24;
 
@@ -261,28 +263,12 @@ let allRows = [];
 let currentCustomer = null;
 let page = 1;
 let loading = false;
+let completionAvailable = false;
+let pendingCompletion = new Set();
 
-const DONE_KEY = "sulekha_image_library_done_v1";
-
-let doneIds = loadDoneIds();
-
-function loadDoneIds(){
-  try {
-    return new Set(
-      JSON.parse(localStorage.getItem(DONE_KEY) || "[]").map(String)
-    );
-  } catch {
-    return new Set();
-  }
-}
-
-function saveDoneIds(){
-  try {
-    localStorage.setItem(DONE_KEY, JSON.stringify([...doneIds]));
-  } catch {
-    toast("Could not save completion state in this browser");
-  }
-}
+// Completion records are loaded from Supabase.
+// No localStorage is used for completion status.
+let doneIds = new Set();
 
 const escapeHTML = value =>
   String(value ?? "").replace(/[&<>"']/g, c => ({
@@ -299,8 +285,10 @@ const safeFile = value =>
     .replace(/^_+|_+$/g,"")
     .slice(0,70) || "image";
 
+// BUSINESS ID IS THE PRIMARY FOLDER IDENTIFIER.
+// cust_id/customer_id are fallbacks for older records.
 const getCustomer = r =>
-  String(r.cust_id ?? r.business_id ?? r.customer_id ?? "unassigned");
+  String(r.business_id ?? r.cust_id ?? r.customer_id ?? "unassigned");
 
 const getImage = r =>
   r.public_url || r.image_url || r.file_url || r.image || "";
@@ -316,13 +304,11 @@ const getDate = r =>
 const validDate = d =>
   d instanceof Date && !Number.isNaN(d.getTime());
 
-// DATE/TIME SORT HELPER
 function timestamp(r){
   const d = getDate(r);
   return validDate(d) ? d.getTime() : 0;
 }
 
-// GET LATEST TIMESTAMP IN A CUSTOMER FOLDER
 function latestFolderTimestamp(items){
   return Math.max(0, ...items.map(timestamp));
 }
@@ -331,9 +317,7 @@ function toast(message){
   const el = $("toast");
   el.textContent = message;
   el.classList.add("show");
-
   clearTimeout(toast.timer);
-
   toast.timer = setTimeout(() => {
     el.classList.remove("show");
   },2600);
@@ -357,12 +341,11 @@ function headers(){
   };
 }
 
-// FETCH ALL SUPABASE RECORDS
+// FETCH ALL IMAGE RECORDS
 async function fetchAllRows(){
   const collected = [];
 
   for(let offset=0;;offset+=PAGE_SIZE){
-
     const params = new URLSearchParams({
       select:"*",
       order:"created_at.desc"
@@ -399,9 +382,91 @@ async function fetchAllRows(){
   return collected.filter(r=>getImage(r));
 }
 
+// LOAD COMPLETION RECORDS FROM CLOUD
+async function fetchCompletionStatus(){
+  const params = new URLSearchParams({
+    select:"business_id,completed",
+    completed:"eq.true"
+  });
+
+  const response = await fetch(
+    `${SUPABASE_URL}/rest/v1/${COMPLETION_TABLE}?${params}`,
+    {headers:headers()}
+  );
+
+  if(!response.ok){
+    const body = await response.text();
+    throw new Error(
+      `Completion table returned ${response.status}: ${body.slice(0,400)}`
+    );
+  }
+
+  const records = await response.json();
+
+  if(!Array.isArray(records)){
+    throw new Error("Invalid completion records response.");
+  }
+
+  doneIds = new Set(
+    records
+      .filter(r=>r.completed===true && r.business_id!==null)
+      .map(r=>String(r.business_id))
+  );
+
+  completionAvailable = true;
+}
+
+// SAVE COMPLETION STATUS TO CLOUD
+async function saveCompletion(businessId,completed){
+  const encodedId = encodeURIComponent(String(businessId));
+
+  if(completed){
+    // Insert or update the completion record.
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/${COMPLETION_TABLE}?on_conflict=business_id`,
+      {
+        method:"POST",
+        headers:{
+          ...headers(),
+          "Content-Type":"application/json",
+          Prefer:"resolution=merge-duplicates,return=minimal"
+        },
+        body:JSON.stringify({
+          business_id:String(businessId),
+          completed:true,
+          completed_at:new Date().toISOString()
+        })
+      }
+    );
+
+    if(!response.ok){
+      throw new Error(
+        `Could not save completion: ${(await response.text()).slice(0,400)}`
+      );
+    }
+  }else{
+    // Remove the completion record when the folder is unticked.
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/${COMPLETION_TABLE}?business_id=eq.${encodedId}`,
+      {
+        method:"DELETE",
+        headers:{
+          ...headers(),
+          Prefer:"return=minimal"
+        }
+      }
+    );
+
+    if(!response.ok){
+      throw new Error(
+        `Could not undo completion: ${(await response.text()).slice(0,400)}`
+      );
+    }
+  }
+}
+
 // DASHBOARD STATISTICS
 function updateStats(){
-
   const today = new Date();
   today.setHours(0,0,0,0);
 
@@ -422,7 +487,6 @@ function updateStats(){
 
 // DATE FILTER
 function dateMatches(r){
-
   const mode = $("dateSelect").value;
 
   if(mode==="all") return true;
@@ -440,13 +504,11 @@ function dateMatches(r){
   }
 
   start.setDate(start.getDate()-Number(mode)+1);
-
   return d>=start;
 }
 
 // SEARCH
 function matches(r,q){
-
   if(!q) return true;
 
   return [
@@ -460,7 +522,6 @@ function matches(r,q){
 
 // FILTER AND SORT RECORDS
 function filteredRows(){
-
   const q = $("searchInput").value.trim().toLowerCase();
 
   let list = allRows.filter(r=>
@@ -470,20 +531,13 @@ function filteredRows(){
   const sort = $("sortSelect").value;
 
   if(sort==="oldest"){
-
     list.sort((a,b)=>timestamp(a)-timestamp(b));
-
   }else if(sort==="title"){
-
     list.sort((a,b)=>
       getTitle(a).localeCompare(getTitle(b))
     );
-
   }else{
-
-    // LATEST DATE AND TIME FIRST
     list.sort((a,b)=>timestamp(b)-timestamp(a));
-
   }
 
   return list;
@@ -501,7 +555,6 @@ function hideEmpty(){
 
 // MAIN RENDER FUNCTION
 function render(){
-
   hideEmpty();
 
   const list = filteredRows();
@@ -517,58 +570,43 @@ function render(){
 
   // CUSTOMER FOLDER VIEW
   if(!inFolder){
-
     $("viewTitle").textContent = "Customer folders";
-
     $("viewSub").textContent =
       "Folders sorted by latest generated date and time.";
 
     const groups = new Map();
 
     for(const r of list){
-
       const key = getCustomer(r);
-
       if(!groups.has(key)){
         groups.set(key,[]);
       }
-
       groups.get(key).push(r);
     }
 
-    // SORT CUSTOMER FOLDERS BY LATEST CREATED_AT
     const sorted = [...groups.entries()].sort((a,b)=>{
-
-      const latestA = latestFolderTimestamp(a[1]);
-      const latestB = latestFolderTimestamp(b[1]);
-
-      return latestB-latestA;
-
+      return latestFolderTimestamp(b[1])-latestFolderTimestamp(a[1]);
     });
 
     $("resultLine").textContent =
       `${sorted.length} folders · ${list.length} images`;
 
     $("folderGrid").innerHTML = sorted.map(([key,items])=>{
-
       const business = items.find(r=>getBusiness(r));
-
       const latestTime = latestFolderTimestamp(items);
-
-      const newest = latestTime
-        ? new Date(latestTime)
-        : null;
-
-      const doneCount = items.filter(r=>
-        doneIds.has(String(r.id))
-      ).length;
-
-      const isFolderDone =
-        items.length>0 && doneCount===items.length;
+      const newest = latestTime ? new Date(latestTime) : null;
+      const isFolderDone = doneIds.has(String(key));
+      const isPending = pendingCompletion.has(String(key));
 
       const progress = isFolderDone
         ? '<span class="folder-done">✓ Completed</span>'
-        : `<span class="folder-progress">${doneCount}/${items.length} done</span>`;
+        : '<span class="folder-progress">Pending</span>';
+
+      const buttonText = isPending
+        ? "Saving..."
+        : isFolderDone
+          ? "✓ Completed · Undo"
+          : "○ Mark folder completed";
 
       return `
         <article class="folder ${isFolderDone?"folder-completed":""}"
@@ -592,20 +630,25 @@ function render(){
             ${progress}
           </div>
 
+          <button
+            type="button"
+            class="btn folder-action ${isFolderDone?"complete":"primary"}"
+            data-folder-done="${escapeHTML(key)}"
+            ${isPending || !completionAvailable ? "disabled" : ""}>
+            ${!completionAvailable?"Cloud unavailable":buttonText}
+          </button>
+
         </article>
       `;
-
     }).join("");
 
     if(!sorted.length){
-
       showEmpty(
         "No customer folders found",
         allRows.length
           ? "No records match your search or date filter."
           : "No image records were returned. Check your Supabase connection."
       );
-
     }
 
     return;
@@ -616,6 +659,8 @@ function render(){
     getCustomer(r)===currentCustomer
   );
 
+  const folderDone = doneIds.has(String(currentCustomer));
+
   $("viewTitle").textContent =
     `Customer ${currentCustomer}`;
 
@@ -623,7 +668,8 @@ function render(){
     `${customerRows.length} matching images`+
     (customerRows[0] && getBusiness(customerRows[0])
       ? " · "+getBusiness(customerRows[0])
-      : "");
+      : "")+
+    (folderDone ? " · ✓ Folder completed" : " · Folder pending");
 
   $("resultLine").textContent =
     `${customerRows.length} images`;
@@ -643,11 +689,9 @@ function render(){
   );
 
   $("postsGrid").innerHTML = visible.map(r=>{
-
     const id = escapeHTML(r.id);
     const url = escapeHTML(getImage(r));
     const title = getTitle(r);
-
     const d = getDate(r);
 
     const date = validDate(d)
@@ -658,27 +702,15 @@ function render(){
       ? `Image ${escapeHTML(r.image_index)}`
       : "Generated post";
 
-    const isDone = doneIds.has(String(r.id));
-
     return `
-      <article class="post ${isDone?"is-done":""}">
-
-        <button class="done-toggle ${isDone?"done":""}"
-          data-done="${id}"
-          title="Mark ${isDone?"not done":"as done"}">
-
-          ${isDone?"✓ Done":"○ Mark done"}
-
-        </button>
+      <article class="post">
 
         <div class="thumb">
-
           <img loading="lazy"
             src="${url}"
             alt="${escapeHTML(title||"Generated image")}"
             data-preview="${url}"
             onerror="this.parentElement.innerHTML='<div class=&quot;broken&quot;>Image could not be loaded<br>Check the storage URL or permissions.</div>'">
-
         </div>
 
         <div class="post-body">
@@ -697,7 +729,6 @@ function render(){
           </div>
 
           <div class="post-actions">
-
             <button class="btn" data-details="${id}">
               Details
             </button>
@@ -709,81 +740,78 @@ function render(){
             <button class="btn primary" data-download="${id}">
               ↓ Image
             </button>
-
           </div>
 
         </div>
-
       </article>
     `;
-
   }).join("");
 
   if(!customerRows.length){
-
     showEmpty(
       "No images in this folder",
       "Try another search or date filter."
     );
-
   }
 
   if(customerRows.length>CARDS_PER_PAGE){
-
     $("pagination").classList.remove("hidden");
-
     $("pageInfo").textContent =
       `Page ${page} of ${totalPages}`;
-
     $("prevPage").disabled = page===1;
     $("nextPage").disabled = page===totalPages;
-
   }
-
 }
 
-// REFRESH DATA
+// REFRESH DATA AND CLOUD COMPLETION STATUS
 async function refresh(){
-
   if(loading) return;
 
   loading = true;
 
   $("refreshBtn").disabled = true;
-
   $("refreshBtn").innerHTML =
     '<span class="loader"></span> Loading...';
 
   clearNotice();
-
   $("resultLine").textContent = "Loading records...";
 
   try{
-
     allRows = await fetchAllRows();
 
     currentCustomer = null;
     page = 1;
 
+    try{
+      await fetchCompletionStatus();
+    }catch(completionError){
+      completionAvailable = false;
+      doneIds = new Set();
+
+      setNotice(
+        "Images loaded, but cloud completion status could not be loaded. "+
+        completionError.message+
+        " Check that library_completed exists and its SELECT policy is enabled.",
+        "error"
+      );
+    }
+
     updateStats();
     render();
 
     if(!allRows.length){
-
       setNotice(
         "Connected to Supabase, but no rows with an image URL were found. Check the image URL fields and SELECT permissions.",
         "info"
       );
-
-    }else{
-
-      toast(`Loaded ${allRows.length} images`);
-
+    }else if(completionAvailable){
+      toast(`Loaded ${allRows.length} images and cloud completion status`);
     }
 
   }catch(error){
-
     allRows = [];
+    completionAvailable = false;
+    doneIds = new Set();
 
     updateStats();
     render();
@@ -798,38 +826,29 @@ async function refresh(){
     $("resultLine").textContent = "Connection error";
 
   }finally{
-
     loading = false;
-
     $("refreshBtn").disabled = false;
     $("refreshBtn").textContent = "↻ Refresh data";
-
   }
-
 }
 
 function findRow(id){
-
   return allRows.find(r=>
     String(r.id)===String(id)
   );
-
 }
 
 // FIRST TWO IMAGES IN CURRENT SORT ORDER
 function getActionPair(){
-
   if(currentCustomer===null) return [];
 
   return filteredRows()
     .filter(r=>getCustomer(r)===currentCustomer)
     .slice(0,2);
-
 }
 
 // BULK ACTIONS
 function updateBulkBar(){
-
   const pair = getActionPair();
 
   $("bulkBar").classList.toggle(
@@ -844,68 +863,73 @@ function updateBulkBar(){
 
   $("copyTwoBtn").disabled = pair.length!==2;
   $("swapTitlesBtn").disabled = pair.length!==2;
-
 }
 
-// COMPLETION STATUS
-function toggleDone(id){
+// TOGGLE ENTIRE CUSTOMER FOLDER COMPLETION
+async function toggleFolderDone(businessId){
+  businessId = String(businessId);
 
-  id = String(id);
-
-  if(doneIds.has(id)){
-    doneIds.delete(id);
-  }else{
-    doneIds.add(id);
+  if(!completionAvailable){
+    toast("Cloud completion is unavailable. Check Supabase.");
+    return;
   }
 
-  saveDoneIds();
+  if(pendingCompletion.has(businessId)){
+    return;
+  }
 
+  const currentlyDone = doneIds.has(businessId);
+  const nextState = !currentlyDone;
+
+  pendingCompletion.add(businessId);
   render();
 
-  toast(
-    doneIds.has(id)
-      ? "Marked as done"
-      : "Marked as not done"
-  );
+  try{
+    await saveCompletion(businessId,nextState);
 
+    if(nextState){
+      doneIds.add(businessId);
+      toast(`Business ${businessId} marked completed and saved to cloud`);
+    }else{
+      doneIds.delete(businessId);
+      toast(`Business ${businessId} completion removed from cloud`);
+    }
+
+  }catch(error){
+    toast(error.message);
+  }finally{
+    pendingCompletion.delete(businessId);
+    render();
+  }
 }
 
 // UPDATE SAVED TITLE IN SUPABASE
 async function updateSavedTitle(row,newTitle){
-
   const url =
     `${SUPABASE_URL}/rest/v1/${TABLE}?id=eq.${encodeURIComponent(row.id)}`;
 
   const response = await fetch(url,{
-
     method:"PATCH",
-
     headers:{
       ...headers(),
       "Content-Type":"application/json",
       Prefer:"return=minimal"
     },
-
     body:JSON.stringify({
       title:newTitle
     })
-
   });
 
   if(!response.ok){
-
     throw new Error(
       `Could not update record ${row.id}: `+
       (await response.text()).slice(0,300)
     );
-
   }
-
 }
 
 // SWAP FIRST TWO TITLES
 async function swapSelectedTitles(){
-
   const pair = getActionPair();
 
   if(pair.length!==2){
@@ -914,7 +938,6 @@ async function swapSelectedTitles(){
   }
 
   const [a,b] = pair;
-
   const titleA = getTitle(a);
   const titleB = getTitle(b);
 
@@ -929,46 +952,33 @@ async function swapSelectedTitles(){
   $("swapTitlesBtn").textContent = "Swapping...";
 
   try{
-
     await updateSavedTitle(a,titleB);
 
     try{
-
       await updateSavedTitle(b,titleA);
-
     }catch(error){
-
       try{
         await updateSavedTitle(a,titleA);
       }catch{}
-
       throw error;
-
     }
 
     a.title = titleB;
     b.title = titleA;
 
     render();
-
     toast("First two titles swapped and saved");
 
   }catch(error){
-
     toast(error.message+" Check Supabase UPDATE permissions.");
-
   }finally{
-
     $("swapTitlesBtn").textContent = "⇄ Swap titles";
     updateBulkBar();
-
   }
-
 }
 
 // COPY TWO TITLES
 async function copyTwoTitles(){
-
   const pair = getActionPair();
 
   if(pair.length!==2){
@@ -981,71 +991,46 @@ async function copyTwoTitles(){
   ).join("\n");
 
   try{
-
     await navigator.clipboard.writeText(text);
-
     toast("First two titles copied");
-
   }catch{
-
     copyTextFallback(text);
-
   }
-
 }
 
 function copyTextFallback(value){
-
   const area = document.createElement("textarea");
-
   area.value = value;
   area.style.position = "fixed";
   area.style.opacity = "0";
-
   document.body.appendChild(area);
-
   area.select();
 
   try{
-
     document.execCommand("copy");
     toast("First two titles copied");
-
   }catch{
-
     toast("Clipboard permission unavailable");
-
   }
 
   area.remove();
-
 }
 
 async function copyText(value,label){
-
   try{
-
     await navigator.clipboard.writeText(value||"");
-
     toast(label+" copied");
-
   }catch{
-
     toast("Clipboard permission unavailable. Select and copy from Details.");
-
   }
-
 }
 
 // DOWNLOAD SINGLE IMAGE
 async function downloadImage(r){
-
   const url = getImage(r);
-
   if(!url) return;
 
   try{
-
     const response = await fetch(url);
 
     if(!response.ok){
@@ -1053,18 +1038,14 @@ async function downloadImage(r){
     }
 
     const blob = await response.blob();
-
     const a = document.createElement("a");
-
     const objectURL = URL.createObjectURL(blob);
 
     a.href = objectURL;
-
     a.download =
       safeFile(getTitle(r)||`image-${r.id}`)+".png";
 
     document.body.appendChild(a);
-
     a.click();
     a.remove();
 
@@ -1073,18 +1054,13 @@ async function downloadImage(r){
     },5000);
 
   }catch{
-
     window.open(url,"_blank","noopener");
-
     toast("Opened image in a new tab; use Save image as to download.");
-
   }
-
 }
 
 // DOWNLOAD CUSTOMER ZIP
 async function downloadZip(customer){
-
   const items = allRows.filter(r=>
     getCustomer(r)===customer && getImage(r)
   );
@@ -1098,19 +1074,14 @@ async function downloadZip(customer){
   }
 
   const btn = $("downloadFolderBtn");
-
   btn.disabled = true;
 
   try{
-
     const zip = new JSZip();
-
     let titles = "File\tTitle\tCreated at\n";
-
     let done = 0;
 
     for(const r of items){
-
       done++;
 
       btn.textContent =
@@ -1131,21 +1102,15 @@ async function downloadZip(customer){
 
       titles +=
         `${filename}\t${String(getTitle(r)).replace(/\t/g," ")}\t${r.created_at||""}\n`;
-
     }
 
     zip.file("titles-and-dates.tsv",titles);
 
-    const blob = await zip.generateAsync({
-      type:"blob"
-    });
-
+    const blob = await zip.generateAsync({type:"blob"});
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement("a");
 
     a.href = url;
-
     a.download =
       `customer-${safeFile(customer)}-images.zip`;
 
@@ -1158,30 +1123,25 @@ async function downloadZip(customer){
     toast(`Downloaded ${items.length} images`);
 
   }catch(e){
-
     toast("ZIP download failed: "+e.message);
-
   }finally{
-
     btn.disabled = false;
     btn.textContent = "⇩ Download folder ZIP";
-
   }
-
 }
 
 // POST DETAILS
 function showDetails(r){
-
   const fields = [
     ["Title",getTitle(r)],
     ["Business",getBusiness(r)],
-    ["Customer ID",getCustomer(r)],
+    ["Business ID",getCustomer(r)],
     ["Prompt",r.prompt],
     ["Image URL",getImage(r)],
     ["Created at",r.created_at],
     ["Record ID",r.id],
-    ["Status",r.status]
+    ["Status",r.status],
+    ["Folder completion",doneIds.has(getCustomer(r))?"Completed":"Pending"]
   ];
 
   $("detailsContent").innerHTML = fields
@@ -1192,12 +1152,10 @@ function showDetails(r){
     `).join("");
 
   $("detailsOverlay").classList.add("open");
-
 }
 
 // EXPORT CSV
 function exportCSV(){
-
   const rows = filteredRows();
 
   if(!rows.length){
@@ -1219,10 +1177,13 @@ function exportCSV(){
   ];
 
   const csv = [
-    cols.join(","),
+    [...cols,"folder_completed"].join(","),
     ...rows.map(r=>
-      cols.map(k=>
-        `"${String(r[k]??"").replace(/"/g,'""')}"`
+      [
+        ...cols.map(k=>r[k]??""),
+        doneIds.has(getCustomer(r)) ? "Yes" : "No"
+      ].map(v=>
+        `"${String(v).replace(/"/g,'""')}"`
       ).join(",")
     )
   ].join("\r\n");
@@ -1233,12 +1194,10 @@ function exportCSV(){
   );
 
   const url = URL.createObjectURL(blob);
-
   const a = document.createElement("a");
 
   a.href = url;
   a.download = "sulekha-image-library.csv";
-
   a.click();
 
   setTimeout(()=>{
@@ -1246,13 +1205,10 @@ function exportCSV(){
   },5000);
 
   toast("CSV exported");
-
 }
 
 // EVENT LISTENERS
-
 $("refreshBtn").addEventListener("click",refresh);
-
 $("exportBtn").addEventListener("click",exportCSV);
 
 $("searchInput").addEventListener("input",()=>{
@@ -1271,14 +1227,10 @@ $("dateSelect").addEventListener("change",()=>{
 });
 
 $("homeBtn").addEventListener("click",()=>{
-
   currentCustomer=null;
   page=1;
-
   $("searchInput").value="";
-
   render();
-
 });
 
 $("downloadFolderBtn").addEventListener("click",()=>{
@@ -1286,7 +1238,6 @@ $("downloadFolderBtn").addEventListener("click",()=>{
 });
 
 $("copyTwoBtn").addEventListener("click",copyTwoTitles);
-
 $("swapTitlesBtn").addEventListener("click",swapSelectedTitles);
 
 $("prevPage").addEventListener("click",()=>{
@@ -1299,87 +1250,64 @@ $("nextPage").addEventListener("click",()=>{
   render();
 });
 
-// OPEN CUSTOMER FOLDER
+// OPEN CUSTOMER FOLDER OR TOGGLE CLOUD COMPLETION
 $("folderGrid").addEventListener("click",e=>{
+  const completionButton = e.target.closest("[data-folder-done]");
+
+  if(completionButton){
+    e.stopPropagation();
+    toggleFolderDone(completionButton.dataset.folderDone);
+    return;
+  }
 
   const card = e.target.closest("[data-customer]");
 
   if(card){
-
     currentCustomer = card.dataset.customer;
-
     page=1;
-
     $("searchInput").value="";
     $("dateSelect").value="all";
-
     render();
 
     window.scrollTo({
       top:0,
       behavior:"smooth"
     });
-
   }
-
 });
 
 // IMAGE ACTIONS
 $("postsGrid").addEventListener("click",e=>{
-
-  const done = e.target.closest("[data-done]");
-
-  if(done){
-    toggleDone(done.dataset.done);
-    return;
-  }
-
   const detail = e.target.closest("[data-details]");
 
   if(detail){
-
     const r = findRow(detail.dataset.details);
-
     if(r) showDetails(r);
-
     return;
-
   }
 
   const copy = e.target.closest("[data-copy-title]");
 
   if(copy){
-
     const r = findRow(copy.dataset.copyTitle);
-
     if(r) copyText(getTitle(r),"Title");
-
     return;
-
   }
 
   const download = e.target.closest("[data-download]");
 
   if(download){
-
     const r = findRow(download.dataset.download);
-
     if(r) downloadImage(r);
-
     return;
-
   }
 
   const image = e.target.closest("[data-preview]");
 
   if(image){
-
     $("lightboxImg").src = image.dataset.preview;
-
     $("lightbox").classList.add("open");
-
   }
-
 });
 
 // CLOSE IMAGE PREVIEW
@@ -1388,11 +1316,9 @@ $("closeLightbox").addEventListener("click",()=>{
 });
 
 $("lightbox").addEventListener("click",e=>{
-
   if(e.target===$("lightbox")){
     $("lightbox").classList.remove("open");
   }
-
 });
 
 // CLOSE DETAILS
@@ -1401,24 +1327,17 @@ $("closeDetails").addEventListener("click",()=>{
 });
 
 $("detailsOverlay").addEventListener("click",e=>{
-
   if(e.target===$("detailsOverlay")){
     $("detailsOverlay").classList.remove("open");
   }
-
 });
 
 // ESCAPE KEY
 document.addEventListener("keydown",e=>{
-
   if(e.key==="Escape"){
-
     $("lightbox").classList.remove("open");
-
     $("detailsOverlay").classList.remove("open");
-
   }
-
 });
 
 // INITIAL LOAD
